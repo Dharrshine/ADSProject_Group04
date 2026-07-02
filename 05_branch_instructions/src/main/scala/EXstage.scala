@@ -185,13 +185,10 @@ when(!io.inXcptInvalid) {
     }
   }
 
-  //Branch Misprediction Handling
-  val predictedTaken = false.B
 
-  // Misprediction: branch was taken but predicted not taken
-  when(isBranch && branchTaken =/= predictedTaken) {
+  when(isBranch && branchTaken) {
     io.outFlush := true.B
-    io.outPCnew := io.inBranchDest  // Branch target
+    io.outPCnew := io.inBranchDest
   }
   when(io.inUOP === uopc.JAL || io.inUOP === uopc.JALR) {
     io.outFlush := true.B

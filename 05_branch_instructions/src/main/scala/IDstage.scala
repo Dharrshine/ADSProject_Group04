@@ -125,12 +125,6 @@ class IDStage extends Module {
   io.operandA := regFile.io.resp_1.data
   io.operandB := regFile.io.resp_2.data
 
-  when(io.inFlush){
-
-    io.uop         := uopc.NOP
-    io.rd          := 0.U
-    io.XcptInvalid := false.B
-  }.otherwise {
 
     // Decode R-type instructions
     when(isRType) {
@@ -248,7 +242,6 @@ class IDStage extends Module {
         io.operandA := io.inPC + 4.U
         io.operandB := 0.U
         io.outBranchDest := io.inPC + immJ
-
       }
 
       .elsewhen(isJALR && funct3 === "b000".U) {
@@ -261,5 +254,4 @@ class IDStage extends Module {
         val jalrTarget = (regFile.io.resp_1.data + immI) & (~1.U(32.W))
         io.outBranchDest := jalrTarget
       }
-  }
 }

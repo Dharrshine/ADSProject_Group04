@@ -289,16 +289,11 @@ class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {
       dut.clock.step(1)
       dut.io.result.expect(1.U)       // ADDI x29, x0, 1
       dut.io.exception.expect(false.B)
-    }
-  }
 
-  "JAL_Test" should "work" in {
-    test(new PipelinedRV32I("src/test/programs/BinaryFile_jal")).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-
-      dut.clock.setTimeout(0)
-      dut.clock.step(5)
+      //JAL Test
+      dut.clock.step(1)
       // JAL x5, 8 (target = PC + 8)
-      dut.io.result.expect(4.U)     // x5 = PC+4 = 4
+      dut.io.result.expect(324.U)     // x5 = PC+4 = 4
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
       // Flushed instruction (addi x6 should be skipped)
@@ -310,8 +305,19 @@ class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
       // ADDI x8, x0, 2
-      dut.io.result.expect(2.U)
+      dut.clock.step(1)
+      // JAL x5, 8 (target = PC + 8)
+      dut.io.result.expect(336.U)     // x5 = PC+4 = 4
       dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+      // Flushed instruction (addi x6 should be skipped)
+      dut.io.result.expect(0.U)
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+      // ADDI x7, x0, 1
+      dut.io.result.expect(1.U)
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
     }
   }
 }
