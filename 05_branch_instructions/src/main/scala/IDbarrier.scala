@@ -48,6 +48,7 @@ class IDBarrier extends Module {
     val inOperandB = Input(UInt(32.W))
     val inXcptInvalid = Input(Bool())
     val inPC = Input(UInt(32.W))
+    val inFlush = Input(Bool())
 
     val outUOP = Output(uopc.Type())
     val outRD = Output(UInt(5.W))
@@ -80,15 +81,15 @@ class IDBarrier extends Module {
   val immReg = RegInit(0.U(32.W))
   val pcReg         = RegInit(0.U(32.W))
 
-  uopReg := io.inUOP
-  rdReg := io.inRD
-  operandAReg := io.inOperandA
-  operandBReg := io.inOperandB
-  xcptInvalidReg := io.inXcptInvalid
-  rs1Reg := io.inRs1
-  rs2Reg := io.inRs2
-  immReg := io.inImm
-  pcReg  := io.inPC
+  uopReg := Mux(io.inFlush, uopc.NOP, io.inUOP)
+  rdReg := Mux(io.inFlush, 0.U, io.inRD)
+  operandAReg := Mux(io.inFlush, 0.U, io.inOperandA)
+  operandBReg := Mux(io.inFlush, 0.U, io.inOperandB)
+  xcptInvalidReg := Mux(io.inFlush, false.B, io.inXcptInvalid)
+  rs1Reg := Mux(io.inFlush, 0.U, io.inRs1)
+  rs2Reg := Mux(io.inFlush, 0.U, io.inRs2)
+  immReg := Mux(io.inFlush, 0.U, io.inImm)
+  pcReg := Mux(io.inFlush, 0.U, io.inPC)
 
   io.outUOP := uopReg
   io.outRD := rdReg

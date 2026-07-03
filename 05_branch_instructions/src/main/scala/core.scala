@@ -155,6 +155,7 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
 
   decodeStage.io.inPC := IfBarrier.io.outPC           // PC of current instruction
   decodeStage.io.inFlush := executeStage.io.outFlush       // Flush on misprediction
+  IdBarrier.io.inFlush   := executeStage.io.outFlush   // ← ADD THIS
   IdBarrier.io.inPC := decodeStage.io.inPC
   IdBarrier.io.inImm := decodeStage.io.imm
   executeStage.io.inPC := IdBarrier.io.outPC

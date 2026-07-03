@@ -63,7 +63,6 @@ class IFStage (BinaryFile: String) extends Module {
   io.instr := IMem(PC >> 2.U)
 
   when(io.inFlush) {
-    // Branch taken (misprediction) → branch target
     nextPC := io.inPCNewEx
   }.otherwise {
     nextPC := PC + 4.U
