@@ -44,16 +44,29 @@ class IFStage (BinaryFile: String) extends Module {
     // ToDo: Add I/O ports
     val instr = Output(UInt(32.W))
     val PC = Output(UInt(32.W))
+
+    // Branch control from EX stage
+    val inPCNewEx = Input(UInt(32.W))
+
+    //flush
+    val inFlush = Input(Bool())
   })
 
   //ToDo: Add your implementation according to the specification above here
   val PC = RegInit(0.U(32.W))
   val IMem = Mem(4096, UInt(32.W))
+  val nextPC = WireDefault(PC + 4.U)
 
   loadMemoryFromFile(IMem, BinaryFile)
 
   io.PC := PC
   io.instr := IMem(PC >> 2.U)
-  PC := PC + 4.U
 
+  when(io.inFlush) {
+    nextPC := io.inPCNewEx
+  }.otherwise {
+    nextPC := PC + 4.U
+  }
+
+  PC := nextPC
 }

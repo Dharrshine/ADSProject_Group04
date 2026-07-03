@@ -47,15 +47,19 @@ class IDBarrier extends Module {
     val inOperandA = Input(UInt(32.W))
     val inOperandB = Input(UInt(32.W))
     val inXcptInvalid = Input(Bool())
-    val inWrEn        = Input(Bool())
+    val inPC = Input(UInt(32.W))
+    val inFlush = Input(Bool())
 
     val outUOP = Output(uopc.Type())
     val outRD = Output(UInt(5.W))
     val outOperandA = Output(UInt(32.W))
     val outOperandB = Output(UInt(32.W))
     val outXcptInvalid = Output(Bool())
-    val outWrEn        = Output(Bool())
+    val outPC = Output(UInt(32.W))
 
+    // NEW: Branch/Jump inputs from ID stage
+    val inImm = Input(UInt(32.W))
+    val outImm = Output(UInt(32.W))
 
     //Forwarding Unit
     val inRs1 = Input(UInt(5.W))
@@ -70,19 +74,22 @@ class IDBarrier extends Module {
   val operandAReg = RegInit(0.U(32.W))
   val operandBReg = RegInit(0.U(32.W))
   val xcptInvalidReg = RegInit(false.B)
-  val wrEnReg        = RegInit(false.B)
   //Forwarding Unit
   val rs1Reg = RegInit(0.U(5.W))
   val rs2Reg = RegInit(0.U(5.W))
+  //Branch/Jump
+  val immReg = RegInit(0.U(32.W))
+  val pcReg         = RegInit(0.U(32.W))
 
-  uopReg := io.inUOP
-  rdReg := io.inRD
-  operandAReg := io.inOperandA
-  operandBReg := io.inOperandB
-  xcptInvalidReg := io.inXcptInvalid
-  rs1Reg := io.inRs1
-  rs2Reg := io.inRs2
-  wrEnReg := io.inWrEn
+  uopReg := Mux(io.inFlush, uopc.NOP, io.inUOP)
+  rdReg := Mux(io.inFlush, 0.U, io.inRD)
+  operandAReg := Mux(io.inFlush, 0.U, io.inOperandA)
+  operandBReg := Mux(io.inFlush, 0.U, io.inOperandB)
+  xcptInvalidReg := Mux(io.inFlush, false.B, io.inXcptInvalid)
+  rs1Reg := Mux(io.inFlush, 0.U, io.inRs1)
+  rs2Reg := Mux(io.inFlush, 0.U, io.inRs2)
+  immReg := Mux(io.inFlush, 0.U, io.inImm)
+  pcReg := Mux(io.inFlush, 0.U, io.inPC)
 
   io.outUOP := uopReg
   io.outRD := rdReg
@@ -91,6 +98,7 @@ class IDBarrier extends Module {
   io.outXcptInvalid := xcptInvalidReg
   io.outRs1 := rs1Reg
   io.outRs2 := rs2Reg
-  io.outWrEn := wrEnReg
+  io.outImm := immReg
+  io.outPC  := pcReg
 
 }
