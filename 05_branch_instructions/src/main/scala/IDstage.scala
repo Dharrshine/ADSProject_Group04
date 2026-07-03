@@ -60,11 +60,7 @@ class IDStage extends Module {
     val operandA = Output(UInt(32.W))
     val operandB = Output(UInt(32.W))
     val XcptInvalid = Output(Bool())
-    val wrEn        = Output(Bool())
-
-    //Branch Control
-    val outBranchDest = Output(UInt(32.W))
-
+    val imm = Output(UInt(32.W))
     //Ports For FeedBack for WB stage
     val wb_req_en = Input(Bool())
     val wb_req_addr = Input(UInt(5.W))
@@ -108,48 +104,37 @@ class IDStage extends Module {
   val isJAL = (opcode === "b1101111".U)
   val isJALR = (opcode === "b1100111".U)
 
-  io.wrEn := isRType || isIType || isJAL || (isJALR && funct3 === "b000".U)
+  io.XcptInvalid := !(isRType || isIType || isBranch || isJAL || (isJALR && funct3 === "b000".U))
 
-  //I-type
   val immI = Cat(Fill(20, io.instr(31)), io.instr(31, 20)).asSInt.asUInt
-  //B-type
   val immB = Cat(io.instr(31), io.instr(7), io.instr(30,25), io.instr(11,8), 0.U(1.W)).asSInt.asUInt
-  //J-Type
   val immJ = Cat(io.instr(31), io.instr(19,12), io.instr(20), io.instr(30,21), 0.U(1.W)).asSInt.asUInt
+
+  io.imm := Mux(isBranch, immB,
+            Mux(isJAL, immJ,
+            Mux(isJALR && funct3 === "b000".U, immI, 0.U)))
 
   // Default values
   io.uop := uopc.NOP
   io.rd := rd
-  io.XcptInvalid   := true.B
-  io.outBranchDest := 0.U
   io.operandA := regFile.io.resp_1.data
   io.operandB := regFile.io.resp_2.data
 
-
     // Decode R-type instructions
     when(isRType) {
-      io.XcptInvalid := false.B
-
       switch(funct3) {
-        is("b000".U) { // ADD or SUB
+        // ADD or SUB
+        is("b000".U) {
           when(funct7 === 0.U) {
             io.uop := uopc.ADD
           }.elsewhen(funct7 === "b0100000".U) {
             io.uop := uopc.SUB
           }
         }
-        is("b001".U) {
-          io.uop := uopc.SLL
-        }
-        is("b010".U) {
-          io.uop := uopc.SLT
-        }
-        is("b011".U) {
-          io.uop := uopc.SLTU
-        }
-        is("b100".U) {
-          io.uop := uopc.XOR
-        }
+        is("b001".U) {io.uop := uopc.SLL}
+        is("b010".U) {io.uop := uopc.SLT}
+        is("b011".U) {io.uop := uopc.SLTU}
+        is("b100".U) {io.uop := uopc.XOR}
         is("b101".U) { // SRL or SRA
           when(funct7 === 0.U) {
             io.uop := uopc.SRL
@@ -157,36 +142,20 @@ class IDStage extends Module {
             io.uop := uopc.SRA
           }
         }
-        is("b110".U) {
-          io.uop := uopc.OR
-        }
-        is("b111".U) {
-          io.uop := uopc.AND
-        }
+        is("b110".U) {io.uop := uopc.OR}
+        is("b111".U) {io.uop := uopc.AND}
       }
     }
-
       // Decode I-type instructions
       .elsewhen(isIType) {
-        io.XcptInvalid := false.B
         io.operandB := immI
 
         switch(funct3) {
-          is("b000".U) {
-            io.uop := uopc.ADDI
-          }
-          is("b001".U) {
-            io.uop := uopc.SLLI
-          }
-          is("b010".U) {
-            io.uop := uopc.SLTI
-          }
-          is("b011".U) {
-            io.uop := uopc.SLTIU
-          }
-          is("b100".U) {
-            io.uop := uopc.XORI
-          }
+          is("b000".U) {io.uop := uopc.ADDI}
+          is("b001".U) {io.uop := uopc.SLLI}
+          is("b010".U) {io.uop := uopc.SLTI}
+          is("b011".U) {io.uop := uopc.SLTIU}
+          is("b100".U) {io.uop := uopc.XORI}
           is("b101".U) { // SRLI or SRAI
             when(funct7 === 0.U) {
               io.uop := uopc.SRLI
@@ -194,64 +163,36 @@ class IDStage extends Module {
               io.uop := uopc.SRAI
             }
           }
-          is("b110".U) {
-            io.uop := uopc.ORI
-          }
-          is("b111".U) {
-            io.uop := uopc.ANDI
-          }
+          is("b110".U) {io.uop := uopc.ORI}
+          is("b111".U) {io.uop := uopc.ANDI}
         }
       }
 
       //B-Type Instruction
       .elsewhen(isBranch) {
-        io.XcptInvalid := false.B
         io.rd := 0.U
-        io.wrEn := false.B
-
-        io.outBranchDest := io.inPC + immB
 
         switch(funct3) {
-          is("b000".U) {
-            io.uop := uopc.BEQ
-          }
-          is("b001".U) {
-            io.uop := uopc.BNE
-          }
-          is("b100".U) {
-            io.uop := uopc.BLT
-          }
-          is("b101".U) {
-            io.uop := uopc.BGE
-          }
-          is("b110".U) {
-            io.uop := uopc.BLTU
-          }
-          is("b111".U) {
-            io.uop := uopc.BGEU
-          }
+          is("b000".U) {io.uop := uopc.BEQ}
+          is("b001".U) {io.uop := uopc.BNE}
+          is("b100".U) {io.uop := uopc.BLT}
+          is("b101".U) {io.uop := uopc.BGE}
+          is("b110".U) {io.uop := uopc.BLTU}
+          is("b111".U) {io.uop := uopc.BGEU}
         }
       }
 
       //J-Type Instructions
       .elsewhen(isJAL) {
-        io.XcptInvalid := false.B
         io.uop := uopc.JAL
         io.rd := rd
-        io.wrEn := true.B
         io.operandA := io.inPC + 4.U
         io.operandB := 0.U
-        io.outBranchDest := io.inPC + immJ
       }
-
       .elsewhen(isJALR && funct3 === "b000".U) {
-        io.XcptInvalid := false.B
         io.uop := uopc.JALR
         io.rd := rd
-        io.wrEn := true.B
-        io.operandA := io.inPC + 4.U
-        io.operandB := 0.U
-        val jalrTarget = (regFile.io.resp_1.data + immI) & (~1.U(32.W))
-        io.outBranchDest := jalrTarget
+        io.operandB := io.inPC + 4.U
+        io.operandA := regFile.io.resp_1.data
       }
 }

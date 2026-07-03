@@ -292,30 +292,23 @@ class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {
 
       //JAL Test
       dut.clock.step(1)
-      // JAL x5, 8 (target = PC + 8)
-      dut.io.result.expect(324.U)     // x5 = PC+4 = 4
+      dut.io.result.expect(324.U)     // JAL x5, 8
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
-      // Flushed instruction (addi x6 should be skipped)
-      dut.io.result.expect(0.U)
+      dut.io.result.expect(0.U)     // addi  x6, x0, 99 (Flush)
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
-      // ADDI x7, x0, 1
-      dut.io.result.expect(1.U)
+      dut.io.result.expect(1.U)    // ADDI x7, x0, 1
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
-      // ADDI x8, x0, 2
       dut.clock.step(1)
-      // JAL x5, 8 (target = PC + 8)
-      dut.io.result.expect(336.U)     // x5 = PC+4 = 4
+      dut.io.result.expect(336.U)     // JAL x5, 8
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
-      // Flushed instruction (addi x6 should be skipped)
-      dut.io.result.expect(0.U)
+      dut.io.result.expect(0.U)     // addi  x6, x0, 99 (Flush)
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
-      // ADDI x7, x0, 1
-      dut.io.result.expect(1.U)
+      dut.io.result.expect(1.U)    // ADDI x7, x0, 1
       dut.io.exception.expect(false.B)
       dut.clock.step(1)
     }

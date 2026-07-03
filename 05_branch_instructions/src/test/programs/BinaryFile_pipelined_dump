@@ -51,68 +51,60 @@ fff00713 // ADDI
 01ff4463    // blt  x30, x31, 8
 06300293    // addi x5,  x0, 99 (Should be flushed)
 00100313    // addi x6,  x0, 1
-// --------------------------
-// BLT Not Taken Test
-// --------------------------
 
+// BLT Not Taken Test
 01400f13    // addi x30, x0, 20
 00a00f93    // addi x31, x0, 10
 01ff4463    // blt  x30, x31, 8
 06300293    // addi x5,  x0, 99 (Branch NOT taken, executes)
 00100313    // addi x6,  x0, 1
-// --------------------------
-// BGE Taken Test
-// --------------------------
 
+// BGE Taken Test
 01400f13    // addi x30, x0, 20
 00a00f93    // addi x31, x0, 10
 01ff5463    // bge  x30, x31, 8
 06300293    // addi x5, x0, 99 (Should be flushed)
 00100313    // addi x6, x0, 1
-// --------------------------
-// BGE Not Taken Test
-// --------------------------
 
+// BGE Not Taken Test
 00c00413    // addi x8,  x0, 12
 01e00493    // addi x9,  x0, 30
 00945463    // bge  x8,  x9, 8
 06300513    // addi x10, x0, 99 (Branch NOT taken)
 00100593    // addi x11, x0, 1
 
-// --------------------------
 // BLTU Taken Test
-// --------------------------
-
 00f00613    // addi x12, x0, 15
 02800693    // addi x13, x0, 40
 00d66463    // bltu x12, x13, 8
 06300713    // addi x14, x0, 99 (should be flushed)
 00100793    // addi x15, x0, 1
-// -------------------------
+
 // BLTU NOT TAKEN TEST
-// -------------------------
+01e00a13    //addi x20, x0, 60
+04b00a93    //addi x21, x0, 25
+015a7463    //bltu x20, x21, 8
+06300b13    //addi x22, x0, 99 (execute)
+00100b93    //addi x23, x0, 1  (execute)
 
-addi x20, x0, 60        // x20 = 60
-addi x21, x0, 25        // x21 = 25
-
-bltu x20, x21, 8        // 60 < 25 ? FALSE -> branch NOT taken
-
-addi x22, x0, 99        // should execute
-00100b93 addi x23, x0, 1         // should execute
-// ============================================
 // BGEU TAKEN TEST
-// ============================================
 05000b13    // ADDI x22, x0, 80
 01900b93    // ADDI x23, x0, 25
 016bb463    // BGEU x22, x23, 8 (TAKEN: 80 >= 25)
 06300c13    // ADDI x24, x0, 99 (FLUSHED)
 00100c93    // ADDI x25, x0, 1 (EXECUTES)
 
-// ============================================
 // BGEU NOT TAKEN TEST
-// ============================================
 01e00d13    // ADDI x26, x0, 30
 04b00d93    // ADDI x27, x0, 75
 01ad9463    // BGEU x26, x27, 8 (NOT TAKEN: 30 >= 75 = FALSE)
 06300e13    // ADDI x28, x0, 99 (EXECUTES)
 00100e93    // ADDI x29, x0, 1 (EXECUTES)
+
+//JAL
+008002ef  // jal   x5, 8
+06300313  // addi  x6, x0, 99
+00100393  // addi  x7, x0, 1
+008002ef  // jal   x5, 8
+06300313  // addi  x6, x0, 99
+00100393  // addi  x7, x0, 1

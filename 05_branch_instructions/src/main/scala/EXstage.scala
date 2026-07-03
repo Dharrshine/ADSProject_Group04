@@ -51,6 +51,7 @@ class EXStage extends Module {
     val inOperandA    = Input(UInt(32.W))
     val inOperandB    = Input(UInt(32.W))
     val inXcptInvalid = Input(Bool())
+    val inPC = Input(UInt(32.W))
 
     val aluResult     = Output(UInt(32.W))
     val rd            = Output(UInt(5.W))
@@ -68,14 +69,10 @@ class EXStage extends Module {
     val aluResMEM = Input(UInt(32.W))
     val aluResWB = Input(UInt(32.W))
 
-    val wrEn     =Input(Bool())
-
     //Branch/Jump
-    val inBranchDest = Input(UInt(32.W))
-
     val outFlush = Output(Bool())      // Flush on branch misprediction
     val outPCnew = Output(UInt(32.W))  // New PC for branch
-
+    val inImm = Input(UInt(32.W))
   })
 
   val alu = Module(new ALU)
@@ -145,15 +142,9 @@ when(!io.inXcptInvalid) {
       is(uopc.BLTU)  { alu.io.operation := ALUOp.SLTU; validOp := true.B }
       is(uopc.BGEU)  { alu.io.operation := ALUOp.SLTU; validOp := true.B }
 
-      // Jump instructions (no ALU operation needed)
-      is(uopc.JAL) {
-        alu.io.operation := ALUOp.ADD  // operandA + 0 = PC+4
-        validOp := true.B
-      }
-      is(uopc.JALR) {
-        alu.io.operation := ALUOp.ADD  // operandA + 0 = PC+4
-        validOp := true.B
-      }
+      // Jump instructions
+      is(uopc.JAL) { alu.io.operation := ALUOp.ADD; validOp := true.B }
+      is(uopc.JALR) { alu.io.operation := ALUOp.PASSB; validOp := true.B }
 
       is(uopc.NOP)   { validOp := true.B }
     }
@@ -163,16 +154,24 @@ when(!io.inXcptInvalid) {
   io.aluResult := alu.io.aluResult
   io.rd := io.inRD
   io.exception := io.inXcptInvalid
-
-  //Branch Outputs
   io.outFlush := false.B
   io.outPCnew := 0.U
 
   val isBranch = io.inUOP === uopc.BEQ || io.inUOP === uopc.BNE ||
     io.inUOP === uopc.BLT || io.inUOP === uopc.BGE ||
     io.inUOP === uopc.BLTU || io.inUOP === uopc.BGEU
+  val isJump = io.inUOP === uopc.JAL || io.inUOP === uopc.JALR
 
   val branchTaken = WireDefault(false.B)
+
+  val target = WireDefault(0.U(32.W))
+  when(isBranch) {
+    target := io.inPC + io.inImm
+  }.elsewhen(io.inUOP === uopc.JAL) {
+    target := io.inPC + io.inImm
+  }.elsewhen(io.inUOP === uopc.JALR) {
+    target := (io.inOperandA + io.inImm) & (~1.U(32.W))  // ← THIS IS THE ONLY CHANGE
+  }
 
   when(isBranch && validOp && !io.inXcptInvalid) {
     switch(io.inUOP) {
@@ -185,13 +184,8 @@ when(!io.inXcptInvalid) {
     }
   }
 
-
-  when(isBranch && branchTaken) {
+  when((isBranch && branchTaken) || isJump) {
     io.outFlush := true.B
-    io.outPCnew := io.inBranchDest
-  }
-  when(io.inUOP === uopc.JAL || io.inUOP === uopc.JALR) {
-    io.outFlush := true.B
-    io.outPCnew := io.inBranchDest  // Jump target
+    io.outPCnew := target
   }
 }
