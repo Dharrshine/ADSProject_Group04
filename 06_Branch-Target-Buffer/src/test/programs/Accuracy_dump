@@ -1,0 +1,5 @@
+// Assembly Logic (Registers x14+)       
+00000713         // 0x00: ADDI x14, x0, 0  (Initialize i=0)
+06400793         // 0x04: ADDI x15, x0, 100 (Initialize limit=100)
+00170713         // 0x08: ADDI x14, x14, 1 (LOOP START: i++)
+fef71ee3         // 0x0C: BNE  x14, x15, -4 (If i =100, jump back to 0x08)
