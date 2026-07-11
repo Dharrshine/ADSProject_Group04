@@ -326,6 +326,80 @@ class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {
       dut.clock.step(1)
       dut.io.result.expect(348.U)     // // ADDI x2, x3, 0
       dut.io.exception.expect(false.B)
+
+
+
+
     }
   }
+
+
+///"BTB_Tester" should "work" in {
+ ///   test(new PipelinedRV32I("src/test/programs/BinaryFile_BTB "))
+ ///     .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+
+//        dut.clock.setTimeout(0)
+
+        //TEST 1
+
+        // Allow pipeline to fill
+//        dut.clock.step(5)
+
+        // addi x10, x0, 0
+//        dut.io.result.expect(0.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // addi x11, x0, 3
+//        dut.io.result.expect(3.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // addi x10, x10, 1
+//        dut.io.result.expect(1.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // blt
+//        dut.io.result.expect(1.U) //changed to 1 from 0
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // addi x10, x10, 1
+//        dut.io.result.expect(2.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // blt
+//        dut.io.result.expect(1.U) ///changed to 1 from 0
+//        dut.io.exception.expect(false.B)
+
+ //       dut.clock.step(1)
+
+        // addi x10, x10, 1
+//        dut.io.result.expect(3.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // blt (not taken)
+//        dut.io.result.expect(0.U)
+//        dut.io.exception.expect(false.B)
+
+//        dut.clock.step(1)
+
+        // addi x5, x0, 99
+//        dut.io.result.expect(99.U)
+//        dut.io.exception.expect(false.B)
+
+        //-----------------
+        // TEST 2
+
+ ///     }
+///  }
 }

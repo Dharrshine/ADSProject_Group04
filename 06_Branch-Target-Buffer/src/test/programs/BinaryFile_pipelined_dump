@@ -114,3 +114,4 @@ fff00713 // ADDI
 06300213    // ADDI x4, x0, 99 (flushed)
 00100293    // ADDI x5, x0, 1
 00018113    // ADDI x2, x3, 0 (checks register value)
+

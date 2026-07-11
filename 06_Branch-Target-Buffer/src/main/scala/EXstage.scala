@@ -199,6 +199,7 @@ class EXStage extends Module {
       is(uopc.BGEU) { branchTaken := alu.io.aluResult === 0.U }
     }
 
+
     //BTB Logic Update
     io.outBtbUpdate := true.B
     io.outBtbUpdatePC := io.inPC
@@ -209,7 +210,7 @@ class EXStage extends Module {
   when((isBranch && branchTaken) || isJump) {
     io.outFlush := true.B
     io.outPCnew := target
-  }
+      }
 
   // Check prediction is valid
   when(io.inBtbValid) {

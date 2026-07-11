@@ -80,4 +80,5 @@ class IFStage (BinaryFile: String) extends Module {
   }
 
   PC := nextPC
+
 }

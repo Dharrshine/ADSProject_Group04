@@ -62,6 +62,7 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
 
     val check_res = Output(UInt(32.W))
     val exception = Output(Bool())
+
   })
   // Temporary outputs to allow compilation.
   // Replace with WBBarrier outputs after pipeline integration.
@@ -194,6 +195,7 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
   //Top level outputs :These connect to the PipelinedRV32I wrapper and the testbench
   io.check_res := WbBarrier.io.outCheckRes
   io.exception := WbBarrier.io.outXcptInvalid
+
 
 
 }
