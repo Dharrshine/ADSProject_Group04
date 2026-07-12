@@ -73,6 +73,7 @@ class EXStage extends Module {
     val outFlush = Output(Bool())      // Flush on branch misprediction
     val outPCnew = Output(UInt(32.W))  // New PC for branch
     val inImm = Input(UInt(32.W))
+    
 
     //BTB
     val inBtbValid = Input(Bool())
@@ -84,6 +85,9 @@ class EXStage extends Module {
     val outBtbUpdateTarget = Output(UInt(32.W))
     val outBtbBranchTaken = Output(Bool())
     val outBtbMispredicted = Output(Bool())
+
+    val outTotalBranches        = Output(UInt(32.W))
+    val outTotalMispredictions  = Output(UInt(32.W))
   })
 
   val alu = Module(new ALU)
@@ -178,9 +182,9 @@ class EXStage extends Module {
     io.inUOP === uopc.BLTU || io.inUOP === uopc.BGEU
   val isJump = io.inUOP === uopc.JAL || io.inUOP === uopc.JALR
 
-  val branchTaken = WireDefault(false.B)
+  val branchTaken = WireDefault(false.B)         //logic using ALU result (e.g., BEQ is aluResult === 0.U)
 
-  val target = WireDefault(0.U(32.W))
+  val target = WireDefault(0.U(32.W))            // actual target
   when(isBranch) {
     target := io.inPC + io.inImm
   }.elsewhen(io.inUOP === uopc.JAL) {
@@ -200,7 +204,7 @@ class EXStage extends Module {
     }
 
     //BTB Logic Update
-    io.outBtbUpdate := true.B
+    //io.outBtbUpdate      := true.B
     io.outBtbUpdatePC := io.inPC
     io.outBtbUpdateTarget := target
     io.outBtbBranchTaken := branchTaken
@@ -217,4 +221,55 @@ class EXStage extends Module {
   }.otherwise {
     io.outBtbMispredicted := false.B
   }
+
+  // Performance Evaluation
+
+  // Misprediction Detection
+  // Wrong direction OR wrong target address = misprediction
+  val directionMismatch = io.inBtbPredictTaken =/= branchTaken
+  val targetMismatch    = branchTaken && (io.inBtbTarget =/= target)
+  io.outBtbMispredicted := isBranch && (directionMismatch || targetMismatch)
+
+  //Register to count total branches and mispredictions
+  val totalBranches      = RegInit(0.U(32.W))
+  val totalMispredicts   = RegInit(0.U(32.W))
+
+  when(isBranch && !io.inXcptInvalid) {
+    totalBranches := totalBranches + 1.U
+    when(io.outBtbMispredicted) {
+        totalMispredicts := totalMispredicts + 1.U
+    }
+  }
+
+  //Training and Flush Logic
+  io.outBtbUpdate := isBranch
+  io.outFlush     := (isBranch && io.outBtbMispredicted) || isJump
+  io.outPCnew     := target
+
+  // Output counters for observation
+  io.outTotalBranches        := totalBranches
+  io.outTotalMispredictions  := totalMispredicts
+
+
+  // Debugging
+  when(isBranch || isJump) {
+    printf("==============================================\n")
+    printf(" EXECUTE STAGE DEBUG (PC: %x)\n", io.inPC)
+    printf("----------------------------------------------\n")
+    printf(" PC            : %x\n", io.inPC)
+    printf(" OperandA      : %x\n", io.inOperandA)
+    printf(" OperandB      : %x\n", io.inOperandB)
+    printf(" BranchTaken   : %d\n", branchTaken)
+    printf(" BTB Valid     : %d\n", io.inBtbValid)
+    printf(" BTB Predict   : %d\n", io.inBtbPredictTaken)
+    printf(" BTB Target    : %x\n", io.inBtbTarget)
+    printf(" Actual Target : %x\n", target) // target = PC + Imm
+    printf(" Flush         : %d\n", io.outFlush)
+    printf(" BTB Mispred   : %d\n", io.outBtbMispredicted)
+    printf(" TotalBranches : %d\n", totalBranches)
+    printf(" TotalMiss     : %d\n", totalMispredicts)
+    printf("==============================================\n\n") }
+
+
+
 }

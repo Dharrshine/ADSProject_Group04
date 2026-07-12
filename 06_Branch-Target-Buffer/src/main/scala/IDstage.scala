@@ -107,7 +107,7 @@ class IDStage extends Module {
   io.XcptInvalid := !(isRType || isIType || isBranch || isJAL || (isJALR && funct3 === "b000".U))
 
   val immI = Cat(Fill(20, io.instr(31)), io.instr(31, 20)).asSInt.asUInt
-  val immB = Cat(io.instr(31), io.instr(7), io.instr(30,25), io.instr(11,8), 0.U(1.W)).asSInt.asUInt
+  val immB = Cat(Fill(19, io.instr(31)), io.instr(31), io.instr(7), io.instr(30,25), io.instr(11,8), 0.U(1.W)).asSInt.asUInt
   val immJ = Cat(io.instr(31), io.instr(19,12), io.instr(20), io.instr(30,21), 0.U(1.W)).asSInt.asUInt
 
   io.imm := Mux(isBranch, immB,

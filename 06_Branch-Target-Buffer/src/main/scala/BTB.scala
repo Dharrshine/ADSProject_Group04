@@ -31,173 +31,201 @@ package core_tile
 
 import chisel3._
 import chisel3.util._
-import uopc._
-
-// -----------------------------------------
-// Branch Target Buffer
-// -----------------------------------------
 
 class BTB extends Module {
-  val io = IO(new Bundle {
-    // Add I/O ports according to the specification above here
-    val PC      = Input(UInt(32.W))
-    val update  = Input(Bool())
-    val updatePC = Input(UInt(32.W))
-    val updateTarget  = Input(UInt(32.W))
-    val mispredicted  = Input(Bool())
-    val branchTaken   = Input(Bool())
 
-    val valid = Output(Bool())
-    val target = Output(UInt(32.W))
-    val predictTaken = Output(Bool())
+  val io = IO(new Bundle {
+    val PC             = Input(UInt(32.W))
+    val update         = Input(Bool())
+    val updatePC       = Input(UInt(32.W))
+    val updateTarget   = Input(UInt(32.W))
+    val mispredicted   = Input(Bool())
+    val branchTaken    = Input(Bool())
+
+    val valid          = Output(Bool())
+    val target         = Output(UInt(32.W))
+    val predictTaken   = Output(Bool())
   })
 
-  //ToDo: Add your implementation according to the specification in assignment 6 here. 
+  //------------------------------------------------------------
+  // Parameters
+  //------------------------------------------------------------
 
-  val NUM_SETS = 8
-  val NUM_WAYS = 2
+  val NUM_SETS  = 8
+  val NUM_WAYS  = 2
 
-  val INDEX_BITS = log2Ceil(NUM_SETS)      //3bits
-  val TAG_BITS = 32 - INDEX_BITS - 2      //27 bits
+  val INDEX_BITS = log2Ceil(NUM_SETS)
+  val TAG_BITS   = 32 - INDEX_BITS - 2
+
+  //------------------------------------------------------------
+  // BTB Entry
+  //------------------------------------------------------------
 
   class BTBEntry extends Bundle {
-    val valid = Bool()
-    val tag   = UInt(TAG_BITS.W)
-    val target = UInt(32.W)
+    val valid     = Bool()
+    val tag       = UInt(TAG_BITS.W)
+    val target    = UInt(32.W)
     val predictor = UInt(2.W)
-
-    def init(initTag: UInt, initTarget: UInt): Unit = {
-      valid := true.B
-      tag := initTag
-      target := initTarget
-      // Initial state: Weakly Taken (10)
-      predictor := "b10".U(2.W)
-    }
   }
 
-  val btb = Reg(Vec(NUM_SETS, Vec(NUM_WAYS, new BTBEntry)))
+  //------------------------------------------------------------
+  // Empty Entry
+  //------------------------------------------------------------
 
-  // Initialize all entries to invalid
-  for (set <- 0 until NUM_SETS) {
-    for (way <- 0 until NUM_WAYS) {
-      btb(set)(way).valid := false.B
-      btb(set)(way).tag := 0.U(TAG_BITS.W)
-      btb(set)(way).target := 0.U(32.W)
-      btb(set)(way).predictor := "b10".U(2.W)  // Weakly Taken by default
-    }
-  }
+  val emptyEntry = Wire(new BTBEntry)
 
-  // LRU tracking: 8 sets, each tracking which way (0 or 1) was most recently used
+  emptyEntry.valid := false.B
+  emptyEntry.tag := 0.U
+  emptyEntry.target := 0.U
+  emptyEntry.predictor := "b10".U // Weakly Taken
+
+  //------------------------------------------------------------
+  // BTB Memory
+  //------------------------------------------------------------
+
+  val btb = RegInit(
+    VecInit(
+      Seq.fill(NUM_SETS)(
+        VecInit(
+          Seq.fill(NUM_WAYS)(emptyEntry)
+        )
+      )
+    )
+  )
+
+  //------------------------------------------------------------
+  // LRU
+  //------------------------------------------------------------
+
   val lru = RegInit(VecInit(Seq.fill(NUM_SETS)(0.U(1.W))))
 
-  // Extract index and tag from PC
-  val index = io.PC(INDEX_BITS + 1, 2)  // 3 bits: PC[4:2]
-  val tag = io.PC(31, INDEX_BITS + 2)   // 27 bits: PC[31:5]
+  //------------------------------------------------------------
+  // Lookup Address
+  //------------------------------------------------------------
 
-  // Extract index and tag from updatePC
+  val index = io.PC(INDEX_BITS + 1, 2)
+  val tag   = io.PC(31, INDEX_BITS + 2)
+
+  //------------------------------------------------------------
+  // Update Address
+  //------------------------------------------------------------
+
   val updateIndex = io.updatePC(INDEX_BITS + 1, 2)
-  val updateTag = io.updatePC(31, INDEX_BITS + 2)
+  val updateTag   = io.updatePC(31, INDEX_BITS + 2)
 
-  // Read operation: check if the PC is in the BTB
+  //------------------------------------------------------------
+  // Lookup
+  //------------------------------------------------------------
+
   val hit = WireDefault(false.B)
-  val hitWay = WireDefault(0.U(log2Ceil(NUM_WAYS).W))
-  val hitTag = WireDefault(0.U(TAG_BITS.W))
+  val hitWay = WireDefault(0.U(1.W))
   val hitTarget = WireDefault(0.U(32.W))
   val hitPredictor = WireDefault("b10".U(2.W))
 
-  // Find matching entry
   for (way <- 0 until NUM_WAYS) {
-    when(btb(index)(way).valid && btb(index)(way).tag === tag) {
+    when(btb(index)(way).valid &&
+         btb(index)(way).tag === tag) {
+
       hit := true.B
       hitWay := way.U
-      hitTag := btb(index)(way).tag
       hitTarget := btb(index)(way).target
       hitPredictor := btb(index)(way).predictor
     }
   }
 
-  // Determine prediction based on the predictor state
-  // 11 or 10: Taken, 01 or 00: Not Taken
-  val predictTaken = WireDefault(false.B)
-  when(hit) {
-    predictTaken := hitPredictor(1)  // MSB indicates taken
-  }
+  //------------------------------------------------------------
+  // Outputs
+  //------------------------------------------------------------
 
-  // Update operation
+  io.valid := hit
+  io.target := hitTarget
+  io.predictTaken := hit && hitPredictor(1)
+
+  //------------------------------------------------------------
+  // BTB Update
+  //------------------------------------------------------------
+
   when(io.update) {
-    // Find if the updatePC already exists in the BTB
+
     val updateHit = WireDefault(false.B)
-    val updateHitWay = WireDefault(0.U(log2Ceil(NUM_WAYS).W))
+    val updateWay = WireDefault(0.U(1.W))
 
     for (way <- 0 until NUM_WAYS) {
-      when(btb(updateIndex)(way).valid && btb(updateIndex)(way).tag === updateTag) {
+      when(btb(updateIndex)(way).valid &&
+           btb(updateIndex)(way).tag === updateTag) {
+
         updateHit := true.B
-        updateHitWay := way.U
+        updateWay := way.U
       }
     }
 
     when(updateHit) {
-      // Update existing entry
-      val way = updateHitWay
-      // Update target
-      btb(updateIndex)(way).target := io.updateTarget
 
-      // Update 2-bit predictor based on actual branch outcome
+      //----------------------------------------
+      // Existing entry
+      //----------------------------------------
+
+      btb(updateIndex)(updateWay).target := io.updateTarget
+
       when(io.branchTaken) {
-        // Branch was taken: increment predictor (saturating at 11)
-        when(btb(updateIndex)(way).predictor =/= "b11".U(2.W)) {
-          btb(updateIndex)(way).predictor := btb(updateIndex)(way).predictor + 1.U
+
+        when(btb(updateIndex)(updateWay).predictor =/= "b11".U) {
+          btb(updateIndex)(updateWay).predictor :=
+            btb(updateIndex)(updateWay).predictor + 1.U
         }
+
       }.otherwise {
-        // Branch was not taken: decrement predictor (saturating at 00)
-        when(btb(updateIndex)(way).predictor =/= "b00".U(2.W)) {
-          btb(updateIndex)(way).predictor := btb(updateIndex)(way).predictor - 1.U
+
+        when(btb(updateIndex)(updateWay).predictor =/= "b00".U) {
+          btb(updateIndex)(updateWay).predictor :=
+            btb(updateIndex)(updateWay).predictor - 1.U
         }
+
       }
 
-      // Update LRU: mark this way as most recently used
-      when(way === 0.U) {
-        lru(updateIndex) := 0.U
-      }.otherwise {
-        lru(updateIndex) := 1.U
-      }
+      lru(updateIndex) := updateWay
 
     }.otherwise {
-      // Not found: allocate new entry using LRU replacement
-      val replaceWay = lru(updateIndex)  // LRU way gets replaced
 
-      // Initialize the new entry
+      //----------------------------------------
+      // Allocate new entry
+      //----------------------------------------
+
+      val replaceWay = ~lru(updateIndex)
+
       btb(updateIndex)(replaceWay).valid := true.B
       btb(updateIndex)(replaceWay).tag := updateTag
       btb(updateIndex)(replaceWay).target := io.updateTarget
 
-      // Initialize predictor: start in Weakly Taken state
       when(io.branchTaken) {
-        btb(updateIndex)(replaceWay).predictor := "b11".U(2.W)  // Strongly Taken
+        btb(updateIndex)(replaceWay).predictor := "b10".U
       }.otherwise {
-        btb(updateIndex)(replaceWay).predictor := "b10".U(2.W)  // Weakly Taken
+        btb(updateIndex)(replaceWay).predictor := "b01".U
       }
 
-      // Update LRU: mark the newly allocated way as most recently used
-      when(replaceWay === 0.U) {
-        lru(updateIndex) := 0.U
-      }.otherwise {
-        lru(updateIndex) := 1.U
-      }
+      lru(updateIndex) := replaceWay
     }
   }
 
-  // Read-only: Also update LRU on a hit
+  //------------------------------------------------------------
+  // Update LRU on Lookup Hit
+  //------------------------------------------------------------
+
   when(hit && !io.update) {
-    when(hitWay === 0.U) {
-      lru(index) := 0.U
-    }.otherwise {
-      lru(index) := 1.U
-    }
+    lru(index) := hitWay
   }
 
-  // Outputs
-  io.valid := hit
-  io.target := hitTarget
-  io.predictTaken := predictTaken
+
+  // 1. Debug Look
+  printf("==============================\n")
+    printf(" BTB MODULE UPDATE (LEARNING)\n")
+    printf("------------------------------\n")
+    printf(" Update PC     : %x\n", io.updatePC)
+    printf(" Update Target : %x\n", io.updateTarget)
+    printf(" Actual Taken  : %d\n", io.branchTaken)
+    printf(" Mispredicted  : %d\n", io.mispredicted)
+    printf(" Way Updated   : %d\n", hitWay) // If Way 0 or 1 was selected
+    printf("==============================\n\n")
+
+ 
 }

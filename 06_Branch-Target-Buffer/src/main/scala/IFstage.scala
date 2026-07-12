@@ -69,15 +69,33 @@ class IFStage (BinaryFile: String) extends Module {
   io.instr := IMem(PC >> 2.U)
   io.btbLookupPC := PC  // Send PC to BTB for lookup
 
+  // Priority 1: Execute stage flush (misprediction recovery)
   when(io.inFlush) {
     nextPC := io.inPCNewEx
   }.otherwise {
+    // Priority 2: Dynamic prediction from BTB
     when(io.btbValid && io.btbPredictTaken) {
       nextPC := io.btbTarget
     }.otherwise {
+      // Priority 3: Normal sequential flow
       nextPC := PC + 4.U
     }
   }
 
   PC := nextPC
+
+
+  //debugging
+printf("==============================\n")
+    printf(" IF STAGE DEBUG (PC: %x)\n", PC)
+    printf("------------------------------\n")
+    printf(" PC            : %x\n", PC)
+    printf(" Next PC       : %x\n", nextPC)
+    printf(" BTB Valid     : %d\n", io.btbValid)
+    printf(" BTB Predict   : %d\n", io.btbPredictTaken)
+    printf(" BTB Target    : %x\n", io.btbTarget)
+    printf(" Flush (In)    : %d\n", io.inFlush)
+    printf("==============================\n\n")
+
+
 }

@@ -62,7 +62,24 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
 
     val check_res = Output(UInt(32.W))
     val exception = Output(Bool())
+
+    // Performance Evaluation
+    val outTotalBranches       = Output(UInt(32.W))
+    val outTotalMispredictions = Output(UInt(32.W))
+
   })
+
+  // 1. Global Simulation Cycle Counter
+  val simCycle = RegInit(0.U(32.W))
+  simCycle := simCycle + 1.U
+  
+  // 2. Start of Cycle Graphical Indicator
+  printf("\n++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+  printf(" +++ START OF CLOCK CYCLE: %d +++\n", simCycle)
+  printf("++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+
+
+
   // Temporary outputs to allow compilation.
   // Replace with WBBarrier outputs after pipeline integration.
   //io.check_res := 0.U
@@ -113,6 +130,11 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
   executeStage.io.inBtbValid := IdBarrier.io.outBtbValid
   executeStage.io.inBtbPredictTaken := IdBarrier.io.outBtbPredictTaken
   executeStage.io.inBtbTarget := IdBarrier.io.outBtbTarget
+
+  // Performance Evaluation
+  io.outTotalBranches       := executeStage.io.outTotalBranches
+  io.outTotalMispredictions := executeStage.io.outTotalMispredictions
+
 
   //stage 1: The fetch stage retrieves instructions from memory
   IfBarrier.io.instrReg := fetchStage.io.instr
@@ -194,6 +216,13 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
   //Top level outputs :These connect to the PipelinedRV32I wrapper and the testbench
   io.check_res := WbBarrier.io.outCheckRes
   io.exception := WbBarrier.io.outXcptInvalid
+  
 
+
+  // 3. End of Cycle Graphical Indicator (optional footer)
+  // Placing this at the end of the module helps frame the output
+  //printf("++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+  //printf(" +++  END OF CLOCK CYCLE: %d  +++\n", simCycle)
+  //printf("++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
 
 }
