@@ -56,7 +56,7 @@ import Assignment02.{ALU, ALUOp}
 import uopc._
 
 
-class PipelinedRV32Icore (BinaryFile: String) extends Module {
+class PipelinedRV32Icore (BinaryFile: String, useDynamic: Boolean = true) extends Module {
   val io = IO(new Bundle {
     //ToDo: Add I/O ports
 
@@ -88,9 +88,9 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
 
   //shaker
   // instantiating the 5 pipeline stages
-  val fetchStage     = Module(new IFStage(BinaryFile))
+  val fetchStage     = Module(new IFStage(BinaryFile, useDynamic))
   val decodeStage    = Module(new IDStage())
-  val executeStage   = Module(new EXStage())
+  val executeStage   = Module(new EXStage(useDynamic))
   val memoryStage    = Module(new MEMStage())
   val writebackStage = Module(new WBStage())
 

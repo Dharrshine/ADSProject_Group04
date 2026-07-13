@@ -42,7 +42,7 @@ import uopc._
 
 //ToDo: Add your implementation according to the specification above here
 
-class EXStage extends Module {
+class EXStage(useDynamic: Boolean = true) extends Module {
 
   val io = IO(new Bundle {
 
@@ -242,7 +242,7 @@ class EXStage extends Module {
   }
 
   //Training and Flush Logic
-  io.outBtbUpdate := isBranch
+  io.outBtbUpdate := isBranch && useDynamic.B   // no training at all if BTB disabled
   io.outFlush     := (isBranch && io.outBtbMispredicted) || isJump
   io.outPCnew     := target
 

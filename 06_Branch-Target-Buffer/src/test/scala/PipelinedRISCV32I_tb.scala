@@ -12,62 +12,113 @@ import PipelinedRV32I._
 import org.scalatest.flatspec.AnyFlatSpec
 
 
+class BTB_CycleCount_Comparison_Test extends AnyFlatSpec with ChiselScalatestTester {
+  "BTB" should "reduce cycles-to-completion compared to static prediction" in {
 
+    val TARGET_BRANCHES = 100   // Accuracy program: single loop, 100 iterations -> 100 branches
+    val MAX_CYCLES = 5000       // safety cap in case something never terminates
 
-class AccuracyTest extends AnyFlatSpec with ChiselScalatestTester {
-  //"AccuracyTest" should "work" in {
-  //  test(new PipelinedRV32I("src/test/programs/Accuracy")).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-  //  dut.clock.step(206) // Allow loops to complete
-//
-  //  val branches = dut.io.outTotalBranches.peek().litValue.toDouble
-  //  val misses   = dut.io.outTotalMispredictions.peek().litValue.toDouble
-//
-  //  //printf(s"DEBUG: Final Counters -> Total: $branches, Mispreds: $misses\n")
-  //  val correct  = branches - misses
-//
-  //  println("--------------------------------------------------")
-  //  println(" PERFORMANCE EVALUATION (LoopTest with 100 Iterations)")
-  //  println("--------------------------------------------------")
-  //  println(f" Total Branches Executed:  $branches%.0f")
-  //  println(f" Total Mispredictions:     $misses%.0f")
-  //  
-  //  if (branches > 0) {
-  //    val accuracy = (correct / branches) * 100.0
-  //    println(f" BTB Prediction Accuracy:  $accuracy%.2f%%")
-  //  }
-  //  println("--------------------------------------------------")
-//
-  //  }
-  //}
-}
+    def runUntilBranchTarget(useDynamic: Boolean): (Int, Double, Double) = {
+      var cyclesTaken = 0
+      var branches = 0.0
+      var misses = 0.0
 
+      test(new PipelinedRV32I("src/test/programs/Accuracy", useDynamic = useDynamic))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
 
-class Alternating_LoopTest extends AnyFlatSpec with ChiselScalatestTester {
-  "Alternating_LoopTest" should "work" in {
-    test(new PipelinedRV32I("src/test/programs/AlternatingTest")).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-    dut.clock.step(990) // Allow loops to complete
-
-    val branches = dut.io.outTotalBranches.peek().litValue.toDouble
-    val misses   = dut.io.outTotalMispredictions.peek().litValue.toDouble
-
-    //printf(s"DEBUG: Final Counters -> Total: $branches, Mispreds: $misses\n")
-    val correct  = branches - misses
-
-    println("--------------------------------------------------")
-    println(" PERFORMANCE EVALUATION (Alternating Loop Test)")
-    println("--------------------------------------------------")
-    println(f" Total Branches Executed:  $branches%.0f")
-    println(f" Total Mispredictions:     $misses%.0f")
-    
-    if (branches > 0) {
-      val accuracy = (correct / branches) * 100.0
-      println(f" BTB Prediction Accuracy:  $accuracy%.2f%%")
+          var reached = false
+          while (!reached && cyclesTaken < MAX_CYCLES) {
+            dut.clock.step(1)
+            cyclesTaken += 1
+            branches = dut.io.outTotalBranches.peek().litValue.toDouble
+            misses   = dut.io.outTotalMispredictions.peek().litValue.toDouble
+            if (branches >= TARGET_BRANCHES) reached = true
+          }
+        }
+      (cyclesTaken, branches, misses)
     }
-    println("--------------------------------------------------")
 
-    }
+    val (dynCycles, dynBranches, dynMiss)    = runUntilBranchTarget(true)
+    val (statCycles, statBranches, statMiss) = runUntilBranchTarget(false)
+
+    val dynAcc  = if (dynBranches  > 0) (dynBranches  - dynMiss)  / dynBranches  * 100.0 else 0.0
+    val statAcc = if (statBranches > 0) (statBranches - statMiss) / statBranches * 100.0 else 0.0
+    val speedup = statCycles.toDouble / dynCycles.toDouble
+    val reduction = (1.0 - dynCycles.toDouble / statCycles.toDouble) * 100.0
+
+    println("====================================================")
+    println(" TASK 6.4 - CYCLES-TO-COMPLETION (Accuracy loop, 100 iters)")
+    println("====================================================")
+    println(f" Dynamic (BTB) : $dynCycles cycles, accuracy = $dynAcc%.2f%%")
+    println(f" Static (none) : $statCycles cycles, accuracy = $statAcc%.2f%%")
+    println(f" Speedup       : $speedup%.2fx faster with BTB")
+    println(f" Cycles saved  : ${statCycles - dynCycles} cycles ($reduction%.1f%% reduction)")
+    println("====================================================")
   }
 }
+
+class BTB_Dynamic_vs_Static_Test extends AnyFlatSpec with ChiselScalatestTester {
+  "BTB" should "improve prediction accuracy over static not-taken prediction" in {
+
+    var dynBranches = 0.0; var dynMiss = 0.0
+    var statBranches = 0.0; var statMiss = 0.0
+
+    // Dynamic (BTB enabled)
+    test(new PipelinedRV32I("src/test/programs/AlternatingTest", useDynamic = true))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        dut.clock.step(990)
+        dynBranches = dut.io.outTotalBranches.peek().litValue.toDouble
+        dynMiss     = dut.io.outTotalMispredictions.peek().litValue.toDouble
+      }
+
+    // Static (BTB disabled, always assume not-taken)
+    test(new PipelinedRV32I("src/test/programs/AlternatingTest", useDynamic = false))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        dut.clock.step(990)
+        statBranches = dut.io.outTotalBranches.peek().litValue.toDouble
+        statMiss     = dut.io.outTotalMispredictions.peek().litValue.toDouble
+      }
+
+    val dynAcc  = if (dynBranches  > 0) (dynBranches  - dynMiss)  / dynBranches  * 100.0 else 0.0
+    val statAcc = if (statBranches > 0) (statBranches - statMiss) / statBranches * 100.0 else 0.0
+
+    println("====================================================")
+    println(" TASK 6.4 - STATIC vs DYNAMIC (BTB) PREDICTION")
+    println("====================================================")
+    println(f" Dynamic (BTB) : $dynBranches%.0f branches, $dynMiss%.0f mispredicts, accuracy = $dynAcc%.2f%%")
+    println(f" Static (none) : $statBranches%.0f branches, $statMiss%.0f mispredicts, accuracy = $statAcc%.2f%%")
+    println(f" Improvement   : ${dynAcc - statAcc}%.2f percentage points")
+    println("====================================================")
+  }
+}
+
+
+//class Alternating_LoopTest extends AnyFlatSpec with ChiselScalatestTester {
+//  "Alternating_LoopTest" should "work" in {
+//    test(new PipelinedRV32I("src/test/programs/AlternatingTest")).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+//    dut.clock.step(990) // Allow loops to complete
+//
+//    val branches = dut.io.outTotalBranches.peek().litValue.toDouble
+//    val misses   = dut.io.outTotalMispredictions.peek().litValue.toDouble
+//
+//    //printf(s"DEBUG: Final Counters -> Total: $branches, Mispreds: $misses\n")
+//    val correct  = branches - misses
+//
+//    println("--------------------------------------------------")
+//    println(" PERFORMANCE EVALUATION (Alternating Loop Test)")
+//    println("--------------------------------------------------")
+//    println(f" Total Branches Executed:  $branches%.0f")
+//    println(f" Total Mispredictions:     $misses%.0f")
+//
+//    if (branches > 0) {
+//      val accuracy = (correct / branches) * 100.0
+//      println(f" BTB Prediction Accuracy:  $accuracy%.2f%%")
+//    }
+//    println("--------------------------------------------------")
+//
+//    }
+//  }
+//}
 
 
 class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {

@@ -15,7 +15,7 @@ import chisel3.util._
 
 import core_tile._
 
-class PipelinedRV32I (BinaryFile: String) extends Module {
+class PipelinedRV32I (BinaryFile: String, useDynamic: Boolean = true) extends Module {
 
   val io = IO(new Bundle {
     val result    = Output(UInt(32.W))
@@ -25,7 +25,7 @@ class PipelinedRV32I (BinaryFile: String) extends Module {
     val outTotalMispredictions = Output(UInt(32.W))
   })
 
-  val core = Module(new PipelinedRV32Icore(BinaryFile))
+  val core = Module(new PipelinedRV32Icore(BinaryFile, useDynamic))
 
   io.result    := core.io.check_res
   io.exception := core.io.exception

@@ -39,7 +39,7 @@ import chisel3.util.experimental.loadMemoryFromFile
 // Fetch Stage
 // -----------------------------------------
 
-class IFStage (BinaryFile: String) extends Module {
+class IFStage (BinaryFile: String, useDynamic: Boolean = true) extends Module {
   val io = IO(new Bundle {
     // ToDo: Add I/O ports
     val instr = Output(UInt(32.W))
@@ -69,15 +69,18 @@ class IFStage (BinaryFile: String) extends Module {
   io.instr := IMem(PC >> 2.U)
   io.btbLookupPC := PC  // Send PC to BTB for lookup
 
-  // Priority 1: Execute stage flush (misprediction recovery)
-  when(io.inFlush) {
-    nextPC := io.inPCNewEx
-  }.otherwise {
-    // Priority 2: Dynamic prediction from BTB
-    when(io.btbValid && io.btbPredictTaken) {
+  if (useDynamic) {
+    when(io.inFlush) {
+      nextPC := io.inPCNewEx
+    }.elsewhen(io.btbValid && io.btbPredictTaken) {
       nextPC := io.btbTarget
     }.otherwise {
-      // Priority 3: Normal sequential flow
+      nextPC := PC + 4.U
+    }
+  } else {
+    when(io.inFlush) {
+      nextPC := io.inPCNewEx
+    }.otherwise {
       nextPC := PC + 4.U
     }
   }
